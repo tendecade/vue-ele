@@ -17,10 +17,9 @@
 // background-color: $bg-color;
 // }
 // 像上边的通过引入theme.scss而得到的$bg-color,不能提前使用
-body {
-    background-color: $bg-color;
-}
-
+// body {
+//     background-color: $bg-color;
+// }
 
 /*
     导入的css是有上下文的

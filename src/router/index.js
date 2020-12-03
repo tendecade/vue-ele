@@ -33,9 +33,9 @@ const router = new VueRouter({
 //  //已经登陆了，才能跳转home页，没登录的话想都别想
 router.beforeEach((to, form, next) => {
 
-    console.log(to); // to是一个对象 // 从哪来
-    console.log(form); // form是一个对象 // 到哪去
-    console.log(next); // next是一个方法 // 
+    // console.log(to); // to是一个对象 // 从哪来
+    // console.log(form); // form是一个对象 // 到哪去
+    // console.log(next); // next是一个方法 // 
 
     const isLogin = localStorage.getItem('ele_login') ? true : false;
     // // localStorage用于持久化的本地存储，除非主动删除数据，否则数据是永远不会过期的。

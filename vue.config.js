@@ -30,6 +30,7 @@ module.exports = {
             // 
             alias: {
                 //获取绝对路径
+                "@": path.resolve(__dirname, './src'),
                 "@c": path.resolve(__dirname, './src/components'),
                 "@a": path.resolve(__dirname, './src/assets'),
                 "public": path.resolve(__dirname, './public'),
