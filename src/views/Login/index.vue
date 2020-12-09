@@ -61,7 +61,8 @@
             <el-col :span="9">
               <el-button type="success"
                          class="block"
-                         @click="getCode">获取验证码</el-button>
+                         :disabled="codeButtonStatus"
+                         @click="getCode">{{codeButtonText}}</el-button>
             </el-col>
           </el-row>
         </el-form-item>
@@ -70,7 +71,8 @@
         <el-form-item>
           <el-button type="danger"
                      class="block submita"
-                     @click="submitForm('ruleForm')">{{ this.mode == "login" ? "登录" : "注册" }}</el-button>
+                     @click="submitForm('ruleForm')"
+                     :disabled="buttonStatus">{{ this.mode == "login" ? "登录" : "注册" }}</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -82,7 +84,7 @@ import validateUtils from "@/utils/validate.js";
 
 import { onMounted, reactive, ref } from "@vue/composition-api";
 
-import { get_code } from "@/api/login.js";
+import { get_code, do_register, do_login } from "@/api/login.js";
 
 export default {
   setup (prop, { refs, root }) {
@@ -106,6 +108,10 @@ export default {
          改动四：将对象格式转化为箭头函数，不能使用逗号
     */
 
+    const status_username = ref(false);
+    const status_password = ref(false);
+    const status_password1 = ref(false);
+
     //  验证验证码
     let validateCode = (rule, value, callback) => {
       ruleForm.code = value = validateUtils.validate_inputValue(value, "code");
@@ -124,10 +130,13 @@ export default {
         "email"
       );
       if (value === "") {
+        status_username.value = false;
         callback(new Error("请输入邮箱"));
       } else if (validateUtils.test_email(value)) {
+        status_username.value = false;
         callback(new Error("邮箱格式错误"));
       } else {
+        status_username.value = true;
         callback();
       }
     };
@@ -138,11 +147,14 @@ export default {
         "password"
       );
       if (value === "") {
+        status_password.value = false;
         callback(new Error("请输入密码"));
       } else if (validateUtils.test_password(value)) {
-        // 移入validate.js文件后的 新 版本（统一导出）
+        // 移入validate.js文件后的 新版本（统一导出）
+        status_password.value = false;
         callback(new Error("密码格式不正确，长短在6-20左右!"));
       } else {
+        status_password.value = true;
         callback();
       }
     };
@@ -157,8 +169,10 @@ export default {
         "password1"
       );
       if (value != ruleForm.password) {
+        status_password1.value = false;
         callback(new Error("两次密码不一致"));
       } else {
+        status_password1.value = true;
         callback();
       }
     };
@@ -185,6 +199,18 @@ export default {
       code: [{ validator: validateCode, trigger: "blur" }]
     });
 
+    // true按钮禁用      false按钮启用
+    // 定义登录注册按钮默认的启用和禁用
+    const buttonStatus = ref(true);
+    // 定义验证码按钮的启用和禁用
+    const codeButtonStatus = ref(false);
+    // 定义验证码按钮的内置文本
+    const codeButtonText = ref('获取验证码');
+    // 定义 验证码延迟定时器
+    const timer_delay = ref(null)
+    // 定义 验证码倒计时定时器
+    const timer_count_down = ref(null);
+
     //----methods--------------------------------------methods----------------------------------methods----
     /*
          改动一：给toggleMenu和submitForm使用const定义变量名
@@ -203,42 +229,187 @@ export default {
       // 切换mode的值 切换mode值为当前注册或登录
       mode.value = item.type;
       // 登录注册切换时清空input内容 还原初始化
-      refs["ruleForm"].resetFields()
+      refs["ruleForm"].resetFields();
+      // 切换时 还原验证码的相关状态
+      resetCodeButton();
+      // 还原登录注册按钮状态 切换之后禁用
+      buttonStatus.value = true;
     };
+
     // 提交
-    const submitForm = formName => {
-      refs[formName].validate(valid => {
-        if (valid) {
-          alert("submit!");
+    const submitForm = (formName => {
+      refs[formName].validate((result) => {
+        if (result) {
+          // alert("submit!");
+          // 执行登录注册 
+          mode.value === 'login' ? doLogin() : doRegister();
         } else {
-          console.log("error submit!!");
+          // console.log("error submit!!");
+          // console.log(result);
           return false;
         }
       });
-    };
+    });
 
     // 获取验证码
     const getCode = (() => {
-      // 判断如果没有邮箱/不存在
-      if (ruleForm.username == '') {
-        root.$message.error("邮箱不能为空！");
-        return false
+      console.log("send code");
+
+      const { result, filed } = validateFileds()
+      let offset = 0
+      // 判断邮箱格式 密码 重复密码 的格式
+      if (!result) { //返回true 验证通过
+        filed.map(item => {
+          offset += 40
+          root.$message({
+            type: 'error',
+            offset: offset,
+            message: `错误字段:${item.message}`,
+            duration: 2000
+          })
+          // root.$message.error(`错误字段:${item.filed}`);
+        })
+        return false;
       }
+
+      // 判断如果没有邮箱/不存在
+      // if (ruleForm.username == '') {
+      //   root.$message.error("邮箱不能为空！");
+      //   return false
+      // }
+
+      // // 让按钮禁用 显示发送中
+      // codeButtonStatus.value = true;
+      // codeButtonText.value = "发送中...";
+      // 相当于：
+      setCodeButtom({
+        status: true,
+        text: '发送中...'
+      })
+
+      // 为了模拟网络延迟 使用一次性定时器
+      timer_delay.value = setTimeout(() => {
+        const data = {
+          username: ruleForm.username,
+          module: mode.value
+        }
+        get_code(data).then((res) => {
+          // 获取到对应的验证码
+          root.$message.success(res.data.message);
+          // 显示倒计时 这是个函数 需要定义
+          countDown(15)
+          // 登录注册按钮启用
+          buttonStatus.value = false
+        }).catch((err) => {
+          console.log("请求错误", err);
+        })
+      }, 3000)
+
+    });
+
+    //----辅助方法--------------------------------------辅助方法----------------------------------辅助方法----
+
+    // 倒计时一分钟 验证码定时器的倒计时效果
+    const countDown = (timer) => {
+      if (timer_count_down.value) {//如果已经存在定时器，那就清空
+        clearInterval(timer_count_down.value);
+      }
+      // 周期性定时器
+      timer_count_down.value = setInterval(() => {
+        timer--;
+        // console.log(typeof timer)
+        // timer等于零的时候 清除定时器
+        if (timer === 0) {
+          // 清除定时器
+          clearInterval(timer_count_down.value);
+
+          // // 显示重新发送
+          // codeButtonText.value = '获取验证码'
+          // // 启用发送按钮
+          // codeButtonStatus.value = false;、
+          // 相当于：
+          setCodeButtom({
+            status: false,
+            text: '获取验证码'
+          })
+
+        } else {
+          codeButtonText.value = `重新发送(${timer}s)`
+        }
+      }, 1000)
+    }
+
+    // 切换时 还原验证码的相关状态
+    const resetCodeButton = () => {
+      // 默认是启用 而且是一个发送中
+      // codeButtonText.value = '获取验证码'
+      // codeButtonStatus.value = false;
+      // 相当于：
+      setCodeButtom({
+        status: false,
+        text: '获取验证码'
+      })
+      // 清空所有定时器
+      clearTimeout(timer_delay.value);
+      clearInterval(timer_count_down.value);
+    }
+
+    // 设置获取验证码的相关状态
+    const setCodeButtom = ({ status, text }) => {
+      codeButtonStatus.value = status;
+      codeButtonText.value = text;
+    }
+
+    // 执行登录
+    const doLogin = () => {
       const data = {
         username: ruleForm.username,
-        module: mode.value
+        password: ruleForm.password,
+        code: ruleForm.code
       }
-      console.log(data);
-      get_code(data).then((res) => {
-        // console.log(res);
-        // console.log(1);
+      // 执行登录
+      do_login(data).then(res => {
         root.$message.success(res.data.message);
-      }).catch((err) => {
-        console.log("请求错误", err);
-        // console.log(2);
-        // console.log(ruleForm.username)
+      }).catch(err => {
+        console.log(err);
       })
-    })
+    }
+
+    // 执行注册
+    const doRegister = () => {
+      const data = {
+        username: ruleForm.username,
+        password: ruleForm.password,
+        code: ruleForm.code
+      }
+      // 执行注册
+      do_register(data).then(res => {
+        // console.log(res);
+        // 提示注册成功完成
+        root.$message.success(res.data.message);
+        // 执行完注册之后（注册成功后）直接跳转到登录页面
+        toggleMenu(menuTab[0]);
+      }).catch(err => {
+        console.log(err);
+      })
+
+    }
+
+    // 发送验证码时验证相关字段
+    const validateFileds = () => {
+      // console.log(refs['ruleForm'].validateFiled('username'));
+      // let _filed = status_username.value ? '' : '邮箱格式错误';
+      const _filed_arr = [
+        { filed: 'username', flag: status_username.value, message: "邮箱格式不正确" },
+        { filed: 'password', flag: status_password.value, message: "密码格式不正确" },
+        { filed: 'password1', flag: status_password1.value, message: "重复密码不正确" }
+      ].filter(item => !item.flag)
+      console.log(_filed_arr);
+      return {
+        result: status_username.value && status_password.value && status_password1.value,
+        filed: _filed_arr
+      }
+    }
 
     // 要是想在模板中使用，必须return出去
     return {
@@ -248,7 +419,10 @@ export default {
       toggleMenu,
       submitForm,
       rules,
-      getCode
+      getCode,
+      buttonStatus,
+      codeButtonText,
+      codeButtonStatus,
     };
   }
 };
@@ -268,7 +442,7 @@ export default {
 .menu-tab {
   text-align: center;
   // margin-top: 250px;
-  padding-top: 250px;
+  padding-top: 220px;
   margin-bottom: 37px;
   li {
     display: inline-block;

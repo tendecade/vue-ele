@@ -30,6 +30,21 @@ export const get_code = (data) => {
     // resCode是零，才表示正确
 
 };
+
 // 登录
+export const do_login = (data) => {
+    return axios.request({
+        method: 'post',
+        url: '/login/',
+        data: data
+    })
+};
 
 // 注册
+export const do_register = (data) => {
+    return axios.request({
+        method: 'post',
+        url: '/register/',
+        data: data
+    })
+}

@@ -31,8 +31,7 @@ const test_code = (value) => {
     let reg = /^[a-z0-9]{6}/;
     return !reg.test(value);
 };
-// 验证密码
-// 验证重复密码
+// 验证密码 验证重复密码
 const test_password = (value) => {
     let reg = /^(?!\D+$)(?![^a-zA-Z]+$)\S{6,20}$/;
     return !reg.test(value);

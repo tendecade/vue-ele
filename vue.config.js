@@ -58,11 +58,12 @@ module.exports = {
         // 代理:
         proxy: {
             // http: //localhost:8082/login
-            // www.web-jshtml.cn/productapi/api/getSms/
-            // www.web-jshtml.cn/productapi/getSms/
+            // www.web-jshtml.cn/productapi/api/getSms/ 没有token业务的接口
+            // www.web-jshtml.cn/productapi/getSms/ 没有token业务的接口
+            // http://www.web-jshtml.cn/productapi/token/ 有token业务的接口
             '/api': {
                 // 以api开头的
-                target: "http://www.web-jshtml.cn/productapi/", //目标接口
+                target: "http://www.web-jshtml.cn/productapi/token/", //目标接口
                 // 必须写：生成一个代理服务器
                 changeOrigin: true, // 跨域 生成一个localhost:8082域名下的一个node服务器 帮你做代理
                 // 重写url
